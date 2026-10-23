@@ -14,7 +14,7 @@ This fork adds a straightforward Codespaces workflow for building and running a 
    bash scripts/start-2hol.sh
    ```
 
-   On the first run, this installs any missing Linux build packages, clones the three official 2HOL repositories, checks out the 2HOL release data and live-server branch, builds the server, and starts it. The first build can take several minutes. On later starts, the same command starts the existing build.
+   On the first run, this installs any missing Linux build packages, clones the three official 2HOL repositories, checks out the same `2HOL_v...` release tag in code, data, and engine (the old `2HOL_liveServer` branch is not exposed by the current repository), builds the server, and starts it. The first build can take several minutes. On later starts, the same command starts the existing build.
 
 4. Keep the server terminal running. The server listens on **TCP port 8005**.
 
