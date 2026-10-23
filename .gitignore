@@ -1,2 +1,11 @@
 .DS_Store
 .Trashes
+
+# 2HOL source checkouts and generated runtime files (keep world data out of Git)
+/OneLife/
+/OneLifeData7/
+/minorGems/
+/output/
+/dependencies/
+/miniOneLifeCompile/
+/world-backups/
