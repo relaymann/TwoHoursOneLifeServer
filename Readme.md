@@ -1,70 +1,72 @@
----
+# Two Hours One Life Server — GitHub Codespaces setup
 
-# OneClickOneServer Setup Guide
+This fork adds a straightforward Codespaces workflow for building and running a **Two Hours One Life (2HOL)** Linux server. It uses the official 2HOL source repositories (`twohoursonelife/OneLife`, `twohoursonelife/OneLifeData7`, and `twohoursonelife/minorGems`) rather than the original One Hour One Life repositories.
 
-Welcome to the OneClickOneServer setup guide. This guide will walk you through the steps to get your server up and running on Windows 10/11.
+> This is a community-hosted custom server setup, not an official 2HOL service. Clients must be compatible with the server's code and data versions.
 
-## Quick Start (Linux/macOS)
+## Start a server in Codespaces
 
-To download and run the setup script interactively with curl:
+1. Open this repository on GitHub, choose **Code → Codespaces → Create codespace on main**.
+2. Wait for the Codespace to finish creating.
+3. In its terminal, run:
 
-```sh
-curl -fsSL https://raw.githubusercontent.com/olliez-mods/OneClickOneServer/main/scripts/setup_direct.sh -o setup_direct.sh && bash setup_direct.sh
-```
-Run afterwards with
-```sh
-./run
-```
-
-
-# Running with Docker on Windows
-## Prerequisites
-
-1. **(Optional) Enable PowerShell Execution Policy**
-
-   In some cases, you might need to enable the PowerShell execution policy to run scripts. If you encounter issues, open PowerShell as an administrator and run the following command:
-   ```powershell
-   Set-ExecutionPolicy Unrestricted
+   ```bash
+   bash scripts/start-2hol.sh
    ```
 
-   > **Note:** This step is often not required, but it is a common troubleshooting step if you face issues running the PowerShell scripts.
+   On the first run, this installs any missing Linux build packages, clones the three official 2HOL repositories, checks out the 2HOL release data and live-server branch, builds the server, and starts it. The first build can take several minutes. On later starts, the same command starts the existing build.
 
-2. **Install Docker Desktop**
+4. Keep the server terminal running. The server listens on **TCP port 8005**.
 
-   Ensure you have Docker Desktop installed and running properly. You can download it from [Docker Desktop](https://www.docker.com/products/docker-desktop).
+To build without immediately launching the server, run `bash scripts/setup-2hol.sh` instead.
 
-   > **Note:** Make sure Docker Desktop is running before proceeding with the setup.
+## Let friends connect over the internet
 
-## Setup Steps
+Codespaces is not a permanent game host: the server stops when the Codespace stops, and it cannot promise 24/7 uptime. For remote players, use a TCP tunnel such as Portwarp. You only need to set the tunnel up once in the Portwarp account; the CLI session must be active inside the same Codespace as the game server.
 
-1. **Configure Server Config**
+Open a **second terminal** in Codespaces, then install/sign in to Portwarp if needed:
 
-   Review the `ContainerConfig.ini` file and update any necessary settings. This file contains configuration options for your server.
+```bash
+curl -fsSL https://portwarp.com/download/install.sh | bash
+pwrp login
+pwrp tunnels
+```
 
-2. **Build the Server**
+Make sure a **TCP** tunnel maps local `8005` to your public port. Start it from that second terminal (replace `1` with your tunnel number if needed):
 
-   Run the `BuildServer.ps1` script:
-   - Right-click the `BuildServer.ps1` file and select "Run with PowerShell".
-   - This script will create a Docker image, create a Docker container, and run it in setup mode.
-   - The container will clone the OHOL repositories and build them. This process may take some time.
+```bash
+pwrp connect 1
+```
 
-3. **Start the Server**
+Keep both terminals open: one running `OneLifeServer`, the other running Portwarp. Share the full public hostname and port that Portwarp displays, for example `hostname.example:18118` (use your actual address, not the example). Don't share any passwords or device approval codes.
 
-   Run the `RunServer.ps1` script:
-   - Right-click the `RunServer.ps1` file and select "Run with PowerShell".
-   - This script will start the server.
+If a tunnel session is still attached to an older Codespace, stop that old session first and reconnect from the current Codespace so the tunnel reaches the correct server.
 
-   > **Note:** When in persistent mode, the `RunServer.ps1` script might not track the logs of the server. To view the logs:
-   > 1. Open Docker Desktop.
-   > 2. Skip past any prompts until you reach the home screen.
-   > 3. Select "Containers" from the menu on the left.
-   > 4. Select "ocos" to open the container.
-   > 5. You can now view the logs.
+## How players join
 
-## Additional Resources
+Each friend needs a compatible Two Hours One Life client. In the client, open **Settings → Gameplay**, enable **Use Custom Server**, and enter the Portwarp hostname in the address field and the public port in the port field. Keep the port separate from the hostname. The server's local port is `8005`; players use the public port shown by Portwarp.
 
-- [Video Tutorial](https://youtu.be/Ovkx85V-3-M)
+This setup disables the official ticket-server check for a standalone custom server. It does not provide a separate account system. If you later set a client password, share it privately with intended players.
 
-For any questions or support, feel free to join the OHOL Discord server and ping @OliverZ.
+## World persistence and backups
 
----
+World database files are stored under `OneLife/server/`; the source checkouts and world files are deliberately ignored by this repository's Git rules. They remain in the Codespace filesystem when the Codespace is stopped and resumed, but **deleting the Codespace can delete the world too**.
+
+For a consistent backup, stop the game server and run:
+
+```bash
+bash scripts/backup-world.sh
+```
+
+This creates an archive in `world-backups/`. Download that archive from the Codespaces file explorer and keep it somewhere outside the Codespace.
+
+## Troubleshooting
+
+- **Build fails:** copy the last 30–50 lines of output; don't delete the source folders or repeatedly rebuild from scratch.
+- **Server starts but friends can't join:** confirm the server says it is listening on TCP port `8005`, the Portwarp session is live and healthy, and the displayed public port is the one entered by the client.
+- **Version mismatch:** ensure the client is compatible with the server's 2HOL code and data tag versions. Don't substitute original OHOL repos or invent a version number.
+- **Codespace stopped:** resume it, run `bash scripts/start-2hol.sh` in one terminal, then reconnect the Portwarp tunnel in a second terminal.
+
+## Legacy Windows Docker scripts
+
+The inherited `BuildServer.ps1` / `RunServer.ps1` Docker path is from the original OneClickOneServer project and has not been converted to the 2HOL repository flow. **Use the Codespaces commands above for this fork** rather than those legacy Windows Docker scripts.
