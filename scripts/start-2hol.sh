@@ -3,8 +3,8 @@ set -Eeuo pipefail
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 SERVER_DIR="$ROOT/OneLife/server"
 
-# Refuse to silently run an old standard-OHOL build if this workspace has
-# source folders left over from the earlier setup attempt.
+# Check both the binary and source identity so a prior standard-OHOL build
+# cannot be launched accidentally.
 valid_sources=true
 for pair in \
     "OneLife|https://github.com/twohoursonelife/OneLife.git" \
@@ -22,13 +22,14 @@ for pair in \
         break
     fi
 done
-code_branch=""
+
+code_tag=""
 if [[ -d "$ROOT/OneLife/.git" ]]; then
-    code_branch="$(git -C "$ROOT/OneLife" branch --show-current)"
+    code_tag="$(git -C "$ROOT/OneLife" describe --tags --exact-match HEAD 2>/dev/null || true)"
 fi
 
-if [[ "$valid_sources" != true || "$code_branch" != "2HOL_liveServer" || ! -x "$SERVER_DIR/OneLifeServer" || ! -s "$SERVER_DIR/serverCodeVersionNumber.txt" ]]; then
-    echo 'A correct 2HOL build was not found. Running the 2HOL setup/build first...'
+if [[ "$valid_sources" != true || "$code_tag" != 2HOL_v* || ! -x "$SERVER_DIR/OneLifeServer" || ! -s "$SERVER_DIR/serverCodeVersionNumber.txt" ]]; then
+    echo 'A correct 2HOL release build was not found. Running the 2HOL setup/build first...'
     bash "$ROOT/scripts/setup-2hol.sh"
 fi
 
@@ -36,6 +37,6 @@ fi
 printf '0\n' > "$SERVER_DIR/settings/requireTicketServerCheck.ini"
 printf '8005\n' > "$SERVER_DIR/settings/port.ini"
 cd "$SERVER_DIR"
-echo 'Starting the Two Hours One Life server on TCP port 8005.'
+echo "Starting Two Hours One Life server (release $code_tag) on TCP port 8005."
 echo 'Keep this terminal open. Press Ctrl+C to stop the server.'
 exec ./OneLifeServer
