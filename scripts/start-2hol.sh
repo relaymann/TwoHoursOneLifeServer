@@ -3,7 +3,7 @@ set -Eeuo pipefail
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 SERVER_DIR="$ROOT/OneLife/server"
 
-# Check both the binary and source identity so a prior standard-OHOL build
+# Check the sources and the release tag so a prior standard-OHOL build
 # cannot be launched accidentally.
 valid_sources=true
 for pair in \
@@ -27,13 +27,28 @@ code_tag=""
 if [[ -d "$ROOT/OneLife/.git" ]]; then
     code_tag="$(git -C "$ROOT/OneLife" describe --tags --exact-match HEAD 2>/dev/null || true)"
 fi
+data_tag=""
+if [[ -d "$ROOT/OneLifeData7/.git" ]]; then
+    data_tag="$(git -C "$ROOT/OneLifeData7" describe --tags --exact-match HEAD 2>/dev/null || true)"
+fi
+gems_tag=""
+if [[ -d "$ROOT/minorGems/.git" ]]; then
+    gems_tag="$(git -C "$ROOT/minorGems" describe --tags --exact-match HEAD 2>/dev/null || true)"
+fi
 
-if [[ "$valid_sources" != true || "$code_tag" != 2HOL_v* || ! -x "$SERVER_DIR/OneLifeServer" || ! -s "$SERVER_DIR/serverCodeVersionNumber.txt" ]]; then
-    echo 'A correct 2HOL release build was not found. Running the 2HOL setup/build first...'
+if [[ "$valid_sources" != true || "$code_tag" != 2HOL_v* || "$data_tag" != "$code_tag" || "$gems_tag" != "$code_tag" || ! -x "$SERVER_DIR/OneLifeServer" || ! -s "$SERVER_DIR/serverCodeVersionNumber.txt" ]]; then
+    echo 'A matching 2HOL release build was not found. Running the 2HOL setup/build first...'
     bash "$ROOT/scripts/setup-2hol.sh"
+    code_tag="$(git -C "$ROOT/OneLife" describe --tags --exact-match HEAD 2>/dev/null || true)"
+    data_tag="$(git -C "$ROOT/OneLifeData7" describe --tags --exact-match HEAD 2>/dev/null || true)"
+    gems_tag="$(git -C "$ROOT/minorGems" describe --tags --exact-match HEAD 2>/dev/null || true)"
 fi
 
 [[ -x "$SERVER_DIR/OneLifeServer" ]] || { echo 'ERROR: server executable still missing after setup.' >&2; exit 1; }
+[[ "$code_tag" == 2HOL_v* && "$data_tag" == "$code_tag" && "$gems_tag" == "$code_tag" ]] || {
+    echo 'ERROR: source repositories are not on one matching 2HOL release tag.' >&2
+    exit 1
+}
 printf '0\n' > "$SERVER_DIR/settings/requireTicketServerCheck.ini"
 printf '8005\n' > "$SERVER_DIR/settings/port.ini"
 cd "$SERVER_DIR"
