@@ -51,40 +51,30 @@ latest_2hol_tag() {
     printf '%s' "$tag"
 }
 
-checkout_release_if_needed() {
-    local dir="$1" latest current
-    latest="$(latest_2hol_tag "$dir")"
-    current="$(git -C "$ROOT/$dir" describe --tags --exact-match HEAD 2>/dev/null || true)"
-    if [[ "$current" == 2HOL_v* ]]; then
-        echo "$dir already pinned to $current; keeping this version."
-        return
-    fi
-    if [[ -n "$(git -C "$ROOT/$dir" status --porcelain)" ]]; then
-        fail "$dir has local changes and is not on a 2HOL release tag. Back it up or clean it manually before changing versions."
-    fi
-    echo "Checking out $dir $latest..."
-    git -C "$ROOT/$dir" checkout --detach "$latest"
-}
-
 clone_or_validate minorGems https://github.com/twohoursonelife/minorGems.git
 clone_or_validate OneLife https://github.com/twohoursonelife/OneLife.git
 clone_or_validate OneLifeData7 https://github.com/twohoursonelife/OneLifeData7.git
 
-checkout_release_if_needed minorGems
-checkout_release_if_needed OneLifeData7
+# The old upstream install script referenced 2HOL_liveServer, but that branch
+# is not exposed by the current official repository. Use one shared version
+# tag across code, game data, and engine to avoid a mixed-version installation.
+server_tag="$(latest_2hol_tag OneLife)"
+echo "Selected common 2HOL release: $server_tag"
 
-# 2HOL publishes a dedicated live-server branch. Checkout it only when needed;
-# don't reset it on repeat runs, which could discard a user's local edits.
-code_branch="$(git -C "$ROOT/OneLife" branch --show-current)"
-if [[ "$code_branch" != "2HOL_liveServer" ]]; then
-    if [[ -n "$(git -C "$ROOT/OneLife" status --porcelain)" ]]; then
-        fail 'OneLife has local changes and is not on 2HOL_liveServer. Back them up before switching branches.'
+for dir in OneLife OneLifeData7 minorGems; do
+    git -C "$ROOT/$dir" rev-parse --verify "refs/tags/$server_tag^{commit}" >/dev/null 2>&1 \
+        || fail "$dir does not contain $server_tag. Refusing to mix incompatible release versions."
+    current="$(git -C "$ROOT/$dir" describe --tags --exact-match HEAD 2>/dev/null || true)"
+    if [[ "$current" == "$server_tag" ]]; then
+        echo "$dir already at $server_tag."
+        continue
     fi
-    git -C "$ROOT/OneLife" show-ref --verify --quiet refs/remotes/origin/2HOL_liveServer \
-        || fail 'The official OneLife repository does not expose origin/2HOL_liveServer.'
-    echo 'Checking out the 2HOL live-server branch...'
-    git -C "$ROOT/OneLife" checkout -B 2HOL_liveServer origin/2HOL_liveServer
-fi
+    if [[ -n "$(git -C "$ROOT/$dir" status --porcelain)" ]]; then
+        fail "$dir has local changes. Back them up or clean them manually before switching to $server_tag."
+    fi
+    echo "Checking out $dir $server_tag..."
+    git -C "$ROOT/$dir" checkout --detach "$server_tag"
+done
 
 server_dir="$ROOT/OneLife/server"
 [[ -x "$server_dir/configure" ]] || fail "Expected configure script not found at $server_dir/configure."
@@ -102,7 +92,6 @@ for name in objects transitions categories tutorialMaps dataVersionNumber.txt; d
     fi
 done
 
-server_tag="$(latest_2hol_tag OneLife)"
 server_version="${server_tag#2HOL_v}"
 printf '%s\n' "$server_version" > "$server_dir/serverCodeVersionNumber.txt"
 mkdir -p "$server_dir/settings"
@@ -111,7 +100,7 @@ printf '8005\n' > "$server_dir/settings/port.ini"
 
 jobs="${BUILD_JOBS:-2}"
 [[ "$jobs" =~ ^[1-9][0-9]*$ ]] || fail 'BUILD_JOBS must be a positive integer.'
-echo "Configuring 2HOL server for Linux (version tag $server_tag)..."
+echo "Configuring 2HOL server for Linux (release $server_tag)..."
 (
     cd "$server_dir"
     ./configure 1
@@ -122,6 +111,6 @@ echo "Configuring 2HOL server for Linux (version tag $server_tag)..."
 
 echo
 echo '2HOL server build completed.'
-echo "Server code version: $server_version"
+echo "Server code/data tag: $server_tag"
 echo 'Next: run bash scripts/start-2hol.sh to launch the server.'
 echo 'Your world database files will be stored under OneLife/server and are excluded from Git.'
