@@ -1,0 +1,9 @@
+{
+  "name": "Two Hours One Life Server",
+  "image": "mcr.microsoft.com/devcontainers/cpp:noble",
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-vscode.cpptools"]
+    }
+  }
+}
